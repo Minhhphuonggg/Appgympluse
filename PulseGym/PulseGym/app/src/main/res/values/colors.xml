@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material 3 Colors for Light Mode -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Primary (Orange/Salmon - Gym Energy) -->
+    <color name="md_theme_light_primary">#FF7043</color>
+    <color name="md_theme_light_on_primary">#FFFFFF</color>
+    <color name="md_theme_light_primary_container">#FFD8C9</color>
+    <color name="md_theme_light_on_primary_container">#330A00</color>
+
+    <!-- Secondary (Teal - Energy) -->
+    <color name="md_theme_light_secondary">#00BCD4</color>
+    <color name="md_theme_light_on_secondary">#FFFFFF</color>
+    <color name="md_theme_light_secondary_container">#B3EBFF</color>
+    <color name="md_theme_light_on_secondary_container">#001A1F</color>
+
+    <!-- Tertiary (Purple - Balance) -->
+    <color name="md_theme_light_tertiary">#9C27B0</color>
+    <color name="md_theme_light_on_tertiary">#FFFFFF</color>
+    <color name="md_theme_light_tertiary_container">#F3E5FF</color>
+    <color name="md_theme_light_on_tertiary_container">#33003D</color>
+
+    <!-- Background & Surface (Light) -->
+    <color name="md_theme_light_background">#FFFBFE</color>
+    <color name="md_theme_light_on_background">#1F1B1F</color>
+    <color name="md_theme_light_surface">#FFFBFE</color>
+    <color name="md_theme_light_on_surface">#1F1B1F</color>
+
+    <!-- Material 3 Colors for Dark Mode -->
+    <!-- Primary (Orange - Gym Energy) -->
+    <color name="md_theme_dark_primary">#FFB99A</color>
+    <color name="md_theme_dark_on_primary">#4D1A00</color>
+    <color name="md_theme_dark_primary_container">#6B2F1A</color>
+    <color name="md_theme_dark_on_primary_container">#FFD8C9</color>
+
+    <!-- Secondary (Teal) -->
+    <color name="md_theme_dark_secondary">#4DD0E1</color>
+    <color name="md_theme_dark_on_secondary">#003638</color>
+    <color name="md_theme_dark_secondary_container">#004F57</color>
+    <color name="md_theme_dark_on_secondary_container">#B3EBFF</color>
+
+    <!-- Tertiary (Purple) -->
+    <color name="md_theme_dark_tertiary">#E8BCFF</color>
+    <color name="md_theme_dark_on_tertiary">#550066</color>
+    <color name="md_theme_dark_tertiary_container">#6D00A1</color>
+    <color name="md_theme_dark_on_tertiary_container">#F3E5FF</color>
+
+    <!-- Background & Surface (Dark) -->
+    <color name="md_theme_dark_background">#0F0E13</color>
+    <color name="md_theme_dark_on_background">#E8DEE8</color>
+    <color name="md_theme_dark_surface">#0F0E13</color>
+    <color name="md_theme_dark_on_surface">#E8DEE8</color>
+
+    <!-- Error Colors -->
+    <color name="md_theme_light_error">#F2B705</color>
+    <color name="md_theme_light_on_error">#FFFFFF</color>
+    <color name="md_theme_dark_error">#FFB4AB</color>
+    <color name="md_theme_dark_on_error">#690005</color>
+
+    <!-- Outline & Scrim -->
+    <color name="md_theme_light_outline">#9F8D9F</color>
+    <color name="md_theme_dark_outline">#999B9D</color>
+    <color name="md_theme_light_surface_variant">#F4DFF0</color>
+    <color name="md_theme_dark_surface_variant">#48454D</color>
+    <color name="orange_transparent">#4DFF7043</color>
+</resources>

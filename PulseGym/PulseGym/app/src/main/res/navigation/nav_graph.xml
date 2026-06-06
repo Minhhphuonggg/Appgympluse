@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_home">
+
+    <fragment
+        android:id="@+id/nav_home"
+        android:name="com.example.pulsegym.ui.main.home.HomeFragment"
+        android:label="@string/home" />
+
+    <fragment
+        android:id="@+id/nav_membership"
+        android:name="com.example.pulsegym.ui.main.membership.MembershipFragment"
+        android:label="@string/plans" />
+
+    <fragment
+        android:id="@+id/nav_exercises"
+        android:name="com.example.pulsegym.ui.main.exercises.ExercisesFragment"
+        android:label="@string/workout" >
+        <action
+            android:id="@+id/action_nav_exercises_to_nav_exercise_detail"
+            app:destination="@id/nav_exercise_detail" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_exercise_detail"
+        android:name="com.example.pulsegym.ui.main.exercises.ExerciseDetailFragment"
+        android:label="Exercise Detail" />
+
+    <fragment
+        android:id="@+id/nav_profile"
+        android:name="com.example.pulsegym.ui.main.profile.ProfileFragment"
+        android:label="@string/profile" />
+
+    <fragment
+        android:id="@+id/nav_chat"
+        android:name="com.example.pulsegym.ui.main.chatai.ChatAIFragment"
+        android:label="@string/ai" />
+
+    <fragment
+        android:id="@+id/nav_vn_pay"
+        android:name="com.example.pulsegym.ui.main.membership.VNPayFragment"
+        android:label="VNPay Payment">
+        <argument
+            android:name="paymentUrl"
+            app:argType="string" />
+    </fragment>
+
+</navigation>
+
