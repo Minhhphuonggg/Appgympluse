@@ -68,6 +68,20 @@ export function AuthProvider({ children }) {
     return incomingUser;
   }, [logout]);
 
+  /**
+   * 🌟 HÀM MỚI ĐƯỢC THÊM VÀO:
+   * Cập nhật ngay lập tức thông tin user ở State nội bộ và LocalStorage 
+   * giúp thanh Header đổi giao diện lập tức mà không cần gọi lại API
+   */
+  const updateUserState = useCallback((newFields) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...newFields };
+      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   useEffect(() => {
     const bootstrap = async () => {
       if (!token) {
@@ -96,8 +110,9 @@ export function AuthProvider({ children }) {
       login,
       logout,
       refreshProfile,
+      updateUserState, // 👈 Đã thêm hàm mới vào đây để các component khác sử dụng được
     }),
-    [token, user, loading, login, logout, refreshProfile]
+    [token, user, loading, login, logout, refreshProfile, updateUserState] // 👈 Đã thêm dependency để tối ưu re-render
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

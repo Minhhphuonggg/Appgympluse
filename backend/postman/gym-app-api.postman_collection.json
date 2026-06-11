@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:2323"
+      "value": "https://appgympluse.onrender.com"
     },
     {
       "key": "adminEmail",

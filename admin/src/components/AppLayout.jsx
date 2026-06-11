@@ -45,8 +45,11 @@ function getNavItems(role) {
   }
 
   if (role === "staff") {
-    return [{ label: "Hội viên", path: "/users", icon: <GroupRoundedIcon /> },
-      { label: "Thiết bị", path: "/equipments", icon: <PrecisionManufacturingRoundedIcon /> }, ...common];
+    return [
+      { label: "Hội viên", path: "/users", icon: <GroupRoundedIcon /> },
+      { label: "Thiết bị", path: "/equipments", icon: <PrecisionManufacturingRoundedIcon /> },
+      ...common,
+    ];
   }
 
   return common;
@@ -137,21 +140,31 @@ export default function AppLayout() {
           </IconButton>
 
           <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6">{navItems.find((item) => location.pathname.startsWith(item.path))?.label || "Tổng quan"}</Typography>
+            <Typography variant="h6">
+              {navItems.find((item) => location.pathname.startsWith(item.path))?.label || "Tổng quan"}
+            </Typography>
           </Box>
 
+          {/* Phần thông tin tài khoản ở góc phải */}
           <Stack direction="row" spacing={1.5} alignItems="center">
             <Stack alignItems="flex-end" sx={{ display: { xs: "none", sm: "flex" } }}>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {user?.name || "-"}
+                {user?.name || "Chưa cập nhật"}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {user?.email || ""}
               </Typography>
             </Stack>
-            <Avatar sx={{ bgcolor: "rgba(255, 124, 84, 0.28)", color: "#ffd6c8" }}>
+            
+            {/* Đã thêm src động từ context và kích thước chuẩn cho Avatar */}
+            <Avatar 
+              src={user?.avatar || ""} 
+              alt={user?.name}
+              sx={{ bgcolor: "rgba(255, 124, 84, 0.28)", color: "#ffd6c8", width: 40, height: 40 }}
+            >
               {(user?.name || "U").charAt(0).toUpperCase()}
             </Avatar>
+
             <Button
               variant="outlined"
               color="inherit"

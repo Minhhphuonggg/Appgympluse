@@ -226,6 +226,8 @@ export default function CheckinsPage() {
                 <TableCell>Check-in</TableCell>
                 <TableCell>Check-out</TableCell>
                 <TableCell>Nhân viên</TableCell>
+                {/* THÊM TIÊU ĐỀ CỘT GHI CHÚ */}
+                <TableCell>Ghi chú</TableCell> 
                 <TableCell>Trạng thái</TableCell>
                 <TableCell align="right">Hành động</TableCell>
               </TableRow>
@@ -233,7 +235,8 @@ export default function CheckinsPage() {
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7}>
+                  {/* Tăng colSpan lên 8 để vừa vặn hàng khi không có dữ liệu */}
+                  <TableCell colSpan={8}> 
                     <Typography color="text.secondary">Không có bản ghi check-in.</Typography>
                   </TableCell>
                 </TableRow>
@@ -256,6 +259,19 @@ export default function CheckinsPage() {
                       Check-out: {row.checkout_by_name || "-"}
                     </Typography>
                   </TableCell>
+                  
+                  {/* ĐỔ DỮ LIỆU GHI CHÚ VÀO ĐÂY */}
+                  <TableCell sx={{ maxWidth: 200 }}>
+                    <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                      {row.note ? `In: ${row.note}` : "-"}
+                    </Typography>
+                    {row.checkout_note && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", wordBreak: "break-word" }}>
+                        Out: {row.checkout_note}
+                      </Typography>
+                    )}
+                  </TableCell>
+
                   <TableCell>
                     <Chip
                       size="small"
@@ -286,6 +302,7 @@ export default function CheckinsPage() {
         )}
       </Paper>
 
+      {/* Dialog tạo check-in (giữ nguyên) */}
       <Dialog open={openCheckinDialog} onClose={() => setOpenCheckinDialog(false)} fullWidth maxWidth="md">
         <DialogTitle>Tạo check-in</DialogTitle>
         <DialogContent>
@@ -405,6 +422,7 @@ export default function CheckinsPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Dialog Check-out (giữ nguyên) */}
       <Dialog open={openCheckoutDialog} onClose={() => setOpenCheckoutDialog(false)} fullWidth maxWidth="xs">
         <DialogTitle>Check-out bản ghi #{currentCheckinId}</DialogTitle>
         <DialogContent>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   Chip,
@@ -29,6 +30,7 @@ import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
+import UploadRoundedIcon from "@mui/icons-material/UploadRounded";
 import { apiRequest, getErrorMessage } from "../lib/api";
 import { formatDateTime, formatMoney } from "../utils/format";
 import { useAuth } from "../context/AuthContext";
@@ -59,7 +61,7 @@ const emptyUserForm = {
 };
 
 export default function UsersPage() {
-  const { user } = useAuth();
+  const { user, updateUserState } = useAuth();
   const [rows, setRows] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -71,6 +73,7 @@ export default function UsersPage() {
   const [openUserDialog, setOpenUserDialog] = useState(false);
   const [userForm, setUserForm] = useState(emptyUserForm);
   const [savingUser, setSavingUser] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [openMembershipDialog, setOpenMembershipDialog] = useState(false);
   const [assigningMembership, setAssigningMembership] = useState(false);
@@ -168,7 +171,39 @@ export default function UsersPage() {
     setOpenUserDialog(true);
   };
 
+  const onUploadAvatar = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setError("");
+
+    try {
+      const data = new FormData();
+      data.append("image", file);
+
+      const result = await apiRequest({
+        method: "POST",
+        url: "/api/uploads/image",
+        data,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setUserForm((prev) => ({ ...prev, avatar: result?.data?.url || "" }));
+      setSnackbar("Upload ảnh đại diện thành công");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setUploadingAvatar(false);
+      event.target.value = "";
+    }
+  };
+
   const saveUser = async () => {
+    if (userForm.phone && (userForm.phone.length !== 10 || !userForm.phone.startsWith("0"))) {
+      setError("Số điện thoại không hợp lệ (Phải đủ 10 chữ số và bắt đầu bằng số 0)");
+      return;
+    }
     setSavingUser(true);
     setError("");
 
@@ -193,6 +228,14 @@ export default function UsersPage() {
           data: payload,
         });
         setSnackbar("Cập nhật hội viên thành công");
+
+        if (Number(userForm.id) === Number(user?.id)) {
+          updateUserState({
+            name: payload.name,
+            avatar: payload.avatar || "",
+            role: payload.role,
+          });
+        }
       } else {
         await apiRequest({
           method: "POST",
@@ -246,6 +289,11 @@ export default function UsersPage() {
         data: { role },
       });
       setSnackbar("Cập nhật vai trò thành công");
+
+      if (Number(userId) === Number(user?.id)) {
+        updateUserState({ role });
+      }
+
       await fetchUsers();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -318,7 +366,7 @@ export default function UsersPage() {
           <TextField
             size="small"
             label="Tìm kiếm"
-            placeholder="Ten, email, so dien thoai"
+            placeholder="Tên, email, số điện thoại"
             value={filters.keyword}
             onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))}
             fullWidth
@@ -411,13 +459,11 @@ export default function UsersPage() {
                 <TableRow key={row.id} hover>
                   <TableCell>{row.id}</TableCell>
                   <TableCell>
-                    <Typography sx={{ fontWeight: 600 }}>{row.name || "-"}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {row.email}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {row.phone || "-"}
-                    </Typography>
+                    <Stack>
+                      <Typography sx={{ fontWeight: 600 }}>{row.name || "-"}</Typography>
+                      <Typography variant="body2" color="text.secondary">{row.email}</Typography>
+                      <Typography variant="caption" color="text.secondary">{row.phone || "-"}</Typography>
+                    </Stack>
                   </TableCell>
                   <TableCell>
                     <Stack spacing={0.75} alignItems="flex-start">
@@ -427,10 +473,10 @@ export default function UsersPage() {
                             {row.active_membership_plan_name || `Plan #${row.active_membership_plan_id}`}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            Het han: {formatDateTime(row.active_membership_end_date)}
+                            Hết hạn: {formatDateTime(row.active_membership_end_date)}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            Gia: {formatMoney(row.active_membership_price)}
+                            Giá: {formatMoney(row.active_membership_price)}
                           </Typography>
                           <Chip size="small" color="primary" label="Đang có hiệu lực" sx={{ width: "fit-content" }} />
                         </Stack>
@@ -446,6 +492,7 @@ export default function UsersPage() {
                           variant="outlined"
                           startIcon={<WorkspacePremiumRoundedIcon />}
                           onClick={() => openAssignMembershipDialog(row)}
+                          sx={{ mt: 0.5 }}
                         >
                           Thêm gói hội viên
                         </Button>
@@ -516,6 +563,7 @@ export default function UsersPage() {
         )}
       </Paper>
 
+      {/* Dialog tạo mới / chỉnh sửa thông tin thành viên */}
       <Dialog open={openUserDialog} onClose={() => setOpenUserDialog(false)} fullWidth maxWidth="sm">
         <DialogTitle>{userForm.id ? "Cập nhật thông tin hội viên" : "Tạo hội viên mới"}</DialogTitle>
         <DialogContent>
@@ -542,15 +590,44 @@ export default function UsersPage() {
             <TextField
               label="Số điện thoại"
               value={userForm.phone}
-              onChange={(event) => setUserForm((prev) => ({ ...prev, phone: event.target.value }))}
+              onChange={(event) => {
+                const val = event.target.value.replace(/\D/g, "").slice(0, 10);
+                setUserForm((prev) => ({ ...prev, phone: val }));
+              }}
               fullWidth
+              error={userForm.phone.length > 0 && (userForm.phone.length !== 10 || !userForm.phone.startsWith("0"))}
+              helperText={
+                userForm.phone.length > 0 && (userForm.phone.length !== 10 || !userForm.phone.startsWith("0"))
+                  ? "Phải đủ 10 chữ số và bắt đầu bằng số 0"
+                  : ""
+              }
             />
-            <TextField
-              label="Avatar URL"
-              value={userForm.avatar}
-              onChange={(event) => setUserForm((prev) => ({ ...prev, avatar: event.target.value }))}
-              fullWidth
-            />
+            
+            <Stack spacing={1.5}>
+              <TextField
+                label="Avatar URL"
+                value={userForm.avatar}
+                onChange={(event) => setUserForm((prev) => ({ ...prev, avatar: event.target.value }))}
+                fullWidth
+              />
+
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.2} alignItems="center">
+                <Button component="label" variant="outlined" startIcon={<UploadRoundedIcon />} disabled={uploadingAvatar}>
+                  {uploadingAvatar ? "Đang upload..." : "Upload ảnh lên Cloudinary"}
+                  <input type="file" hidden accept="image/*" onChange={onUploadAvatar} />
+                </Button>
+                
+                {userForm.avatar && (
+                  <Avatar
+                    variant="rounded"
+                    src={userForm.avatar}
+                    alt="Avatar preview"
+                    sx={{ width: 52, height: 52, border: "1px solid rgba(148, 193, 232, 0.25)" }}
+                  />
+                )}
+              </Stack>
+            </Stack>
+
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <FormControl fullWidth>
                 <InputLabel>Vai trò</InputLabel>
@@ -591,6 +668,7 @@ export default function UsersPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Dialog cấp thẻ hội viên trực tiếp */}
       <Dialog open={openMembershipDialog} onClose={() => setOpenMembershipDialog(false)} fullWidth maxWidth="sm">
         <DialogTitle>Thêm gói hội viên trực tiếp</DialogTitle>
         <DialogContent>
@@ -610,7 +688,7 @@ export default function UsersPage() {
               >
                 {plans.map((plan) => (
                   <MenuItem key={plan.id} value={String(plan.id)}>
-                    {plan.name} - {formatMoney(plan.price)} / {plan.duration_days} ngay
+                    {plan.name} - {formatMoney(plan.price)} / {plan.duration_days} ngày
                   </MenuItem>
                 ))}
               </Select>
@@ -624,7 +702,7 @@ export default function UsersPage() {
             />
             {selectedPlan && (
               <Typography variant="body2" color="text.secondary">
-                Gói chọn: {selectedPlan.name} ({selectedPlan.duration_days} ngay)
+                Gói chọn: {selectedPlan.name} ({selectedPlan.duration_days} ngày)
               </Typography>
             )}
             {loadingPlans && <Typography color="text.secondary">Đang tải danh sách gói...</Typography>}

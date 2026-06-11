@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  Avatar, // Đã kiểm tra import đầy đủ
   Box,
   Button,
   CircularProgress,
@@ -129,13 +130,13 @@ export default function ExercisesPage() {
 
     try {
       const payload = {
-        name: form.name,
-        description: form.description,
-        muscleGroup: form.muscleGroup,
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        muscleGroup: form.muscleGroup.trim() || null,
         difficulty: form.difficulty,
-        equipment: form.equipment,
-        videoUrl: form.videoUrl,
-        thumbnail: form.thumbnail,
+        equipment: form.equipment.trim() || null,
+        videoUrl: form.videoUrl.trim() || null,
+        thumbnail: form.thumbnail.trim() || null,
       };
 
       if (form.id) {
@@ -208,12 +209,27 @@ export default function ExercisesPage() {
               {rows.map((row) => (
                 <TableRow key={row.id} hover>
                   <TableCell>{row.id}</TableCell>
+                  
+                  {/* Hiển thị Avatar ảnh thu nhỏ lồng với tên bài tập giống như thiết bị */}
                   <TableCell>
-                    <Typography sx={{ fontWeight: 600 }}>{row.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {row.equipment || "-"}
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+                      <Avatar
+                        variant="rounded"
+                        src={row.thumbnail || ""}
+                        alt={row.name}
+                        sx={{ width: 52, height: 52, border: "1px solid rgba(148, 193, 232, 0.25)" }}
+                      >
+                        {row.name?.charAt(0)?.toUpperCase() || "E"}
+                      </Avatar>
+                      <Box>
+                        <Typography sx={{ fontWeight: 600 }}>{row.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {row.equipment || "-"}
+                        </Typography>
+                      </Box>
+                    </Box>
                   </TableCell>
+
                   <TableCell>{row.muscle_group || "-"}</TableCell>
                   <TableCell>{difficultyLabelMap[row.difficulty] || row.difficulty}</TableCell>
                   <TableCell>{formatDateTime(row.updated_at)}</TableCell>
@@ -311,10 +327,15 @@ export default function ExercisesPage() {
                   {uploadingImage ? "Đang upload..." : "Upload ảnh lên Cloudinary"}
                   <input type="file" hidden accept="image/*" onChange={onUploadImage} />
                 </Button>
+                
+                {/* Khung hiển thị ảnh xem trước (Preview) dạng Avatar vuông bo góc */}
                 {form.thumbnail && (
-                  <Typography variant="caption" color="text.secondary" sx={{ wordBreak: "break-all" }}>
-                    {form.thumbnail}
-                  </Typography>
+                  <Avatar
+                    variant="rounded"
+                    src={form.thumbnail}
+                    alt="Exercise preview"
+                    sx={{ width: 52, height: 52, border: "1px solid rgba(148, 193, 232, 0.25)" }}
+                  />
                 )}
               </Stack>
             </Stack>
