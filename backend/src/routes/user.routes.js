@@ -19,6 +19,7 @@ const router = express.Router();
 router.get("/me", authenticate, userController.getMyProfile);
 router.patch("/me", authenticate, updateMeValidation, validate, userController.updateMyProfile);
 
+// Xem danh sách người dùng (Admin & Staff)
 router.get(
   "/admin/users",
   authenticate,
@@ -28,42 +29,47 @@ router.get(
   userController.adminListUsers
 );
 
+// Xem chi tiết người dùng (Admin & Staff)
 router.get(
   "/admin/users/:userId",
   authenticate,
-  allowRoles("admin"),
+  allowRoles("admin", "staff"), // Đã mở quyền cho staff
   userIdParamValidation,
   validate,
   userController.adminGetUser
 );
 
+// Thêm người dùng mới (Admin & Staff)
 router.post(
   "/admin/users",
   authenticate,
-  allowRoles("admin"),
+  allowRoles("admin", "staff"), // Đã mở quyền cho staff
   createUserValidation,
   validate,
   userController.adminCreateUser
 );
 
+// Sửa thông tin người dùng (Admin & Staff)
 router.patch(
   "/admin/users/:userId",
   authenticate,
-  allowRoles("admin"),
+  allowRoles("admin", "staff"), // Đã mở quyền cho staff
   updateUserValidation,
   validate,
   userController.adminUpdateUser
 );
 
+// Xóa người dùng (Admin & Staff)
 router.delete(
   "/admin/users/:userId",
   authenticate,
-  allowRoles("admin"),
+  allowRoles("admin", "staff"), // Đã mở quyền cho staff
   userIdParamValidation,
   validate,
   userController.adminDeleteUser
 );
 
+// Gán thẻ hội viên (Admin & Staff)
 router.post(
   "/admin/users/:userId/memberships",
   authenticate,
@@ -73,7 +79,7 @@ router.post(
   userController.adminAssignMembership
 );
 
-// [ĐÃ THÊM] - Route Hủy thẻ hội viên
+// Hủy thẻ hội viên (Admin & Staff)
 router.delete(
   "/admin/users/:userId/memberships/:membershipId",
   authenticate,
@@ -81,15 +87,17 @@ router.delete(
   userController.adminRemoveMembership
 );
 
+// Cập nhật trạng thái (Admin & Staff)
 router.patch(
   "/admin/users/:userId/status",
   authenticate,
-  allowRoles("admin"),
+  allowRoles("admin", "staff"), // Đã mở quyền cho staff
   updateUserStatusValidation,
   validate,
   userController.adminUpdateStatus
 );
 
+// Cập nhật quyền (Chỉ Admin)
 router.patch(
   "/admin/users/:userId/role",
   authenticate,

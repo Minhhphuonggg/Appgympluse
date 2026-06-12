@@ -14,7 +14,7 @@ const {
   deactivateActiveMembershipsByUserId,
   deleteUserMembershipById,
 } = require("../models/userMembership.model");
-const { execute } = require("../models/base.model"); // Import để thực hiện lệnh xóa thủ công
+const { execute } = require("../models/base.model");
 const { hashPassword } = require("../utils/password");
 const { addDays, toSqlDateTime } = require("../utils/date");
 const { generateQrDataUrl } = require("../utils/qr");
@@ -114,19 +114,19 @@ async function adminUpdateUser(userId, payload) {
   return sanitizeUserRow(updated);
 }
 
-// HÀM XÓA ĐÃ ĐƯỢC CHỈNH SỬA ĐỂ KHÔNG BỊ LỖI KHÓA NGOẠI
+// XỬ LÝ XÓA AN TOÀN - TRÁNH LỖI KHÓA NGOẠI
 async function adminDeleteUser(userId, actorId) {
   if (userId === actorId) throw new ApiError(400, "You cannot delete your own account");
   const existingUser = await findUserById(userId);
   if (!existingUser) throw new ApiError(404, "User not found");
 
   try {
-    // Xóa tất cả các bản ghi trong user_memberships trước khi xóa user
+    // Dọn dẹp dữ liệu liên quan trước khi xóa chính User
     await execute(`DELETE FROM user_memberships WHERE user_id = ?`, [userId]);
-    // Sau đó xóa user
     await deleteUserById(userId);
   } catch (error) {
-    throw new ApiError(409, "Cannot delete this user");
+    console.error("Delete user error:", error);
+    throw new ApiError(409, "Cannot delete this user due to database constraints");
   }
 }
 
@@ -144,6 +144,7 @@ async function adminAssignMembership(userId, payload, actorId) {
   const endDate = addDays(startDate, Number(plan.duration_days));
   const qrPayload = JSON.stringify({ type: "gym-membership", source: "admin-manual", assignedBy: actorId, userId, planId: plan.id, validUntil: endDate.toISOString() });
   const qrCode = await generateQrDataUrl(qrPayload);
+  
   await deactivateActiveMembershipsByUserId(userId, "cancelled");
 
   return createUserMembership({
@@ -158,6 +159,7 @@ async function adminAssignMembership(userId, payload, actorId) {
 }
 
 async function adminRemoveMembership(userId, membershipId) {
+  if (!userId || !membershipId) throw new ApiError(400, "Invalid ID");
   const user = await findUserById(userId);
   if (!user) throw new ApiError(404, "User not found");
   await deleteUserMembershipById(membershipId);

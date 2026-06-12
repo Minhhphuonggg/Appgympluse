@@ -37,7 +37,6 @@ const adminUpdateUser = asyncHandler(async (req, res) => {
 });
 
 const adminDeleteUser = asyncHandler(async (req, res) => {
-  // Đảm bảo actorId được truyền từ req.user.id
   await userService.adminDeleteUser(Number(req.params.userId), req.user.id);
   return sendSuccess(res, { message: "User deleted" });
 });
