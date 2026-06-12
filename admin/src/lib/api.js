@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:2323",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "https://appgympluse.onrender.com",
   timeout: 30000,
 });
 
