@@ -1,6 +1,5 @@
 const crypto = require("crypto");
 const env = require("../config/env");
-const ApiError = require("./apiError");
 const qs = require("qs");
 
 function formatDate(date) {
@@ -9,79 +8,92 @@ function formatDate(date) {
   return `${vnDate.getUTCFullYear()}${pad(vnDate.getUTCMonth() + 1)}${pad(vnDate.getUTCDate())}${pad(vnDate.getUTCHours())}${pad(vnDate.getUTCMinutes())}${pad(vnDate.getUTCSeconds())}`;
 }
 
-function sortObject(input) {
-  const sorted = {};
-  Object.keys(input).sort().forEach((key) => {
-    if (input[key] !== undefined && input[key] !== null && input[key] !== "") {
-      sorted[key] = input[key];
+// HÀM SORT VÀ ENCODE CHUẨN 100% THEO TÀI LIỆU VNPAY
+function sortObject(obj) {
+  let sorted = {};
+  let str = [];
+  let key;
+  for (key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      str.push(encodeURIComponent(key));
     }
-  });
+  }
+  str.sort();
+  for (key = 0; key < str.length; key++) {
+    // VNPay yêu cầu encode value và thay thế %20 bằng dấu +
+    sorted[str[key]] = encodeURIComponent(obj[str[key]]).replace(/%20/g, "+");
+  }
   return sorted;
 }
 
-// CẤU HÌNH QUAN TRỌNG: VNPay yêu cầu encode URL cho dữ liệu băm
-function createSecureHash(sortedParams) {
-  // Thay đổi: Sử dụng encode: true (mặc định của qs) để các ký tự đặc biệt được xử lý đúng chuẩn
-  const signData = qs.stringify(sortedParams, { encode: true });
-  return crypto.createHmac("sha512", env.vnpay.hashSecret).update(Buffer.from(signData, "utf-8")).digest("hex");
-}
-
-function sanitizeOrderInfo(orderInfo) {
-  const normalized = String(orderInfo || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^\w\s.,:;/-]/g, " ").replace(/\s+/g, " ").trim();
-  return normalized || "Thanh toan goi hoi vien";
-}
-
-function sanitizeIp(ipAddr) {
-  if (!ipAddr) return "127.0.0.1";
-  const ip = String(ipAddr).trim();
-  if (!ip || ip === "::1") return "127.0.0.1";
-  if (ip.startsWith("::ffff:")) return ip.slice(7);
-  return ip;
-}
-
 function buildVnpayPaymentUrl({ amount, orderRef, orderInfo, ipAddr }) {
-  const now = new Date();
-  const expire = new Date(now.getTime() + 15 * 60 * 1000);
+  let date = new Date();
+  let expireDate = new Date(date.getTime() + 15 * 60 * 1000);
 
-  const params = {
-    vnp_Version: "2.1.0",
-    vnp_Command: "pay",
-    vnp_TmnCode: env.vnpay.tmnCode,
-    vnp_Locale: "vn",
-    vnp_CurrCode: "VND",
-    vnp_TxnRef: orderRef,
-    vnp_OrderInfo: sanitizeOrderInfo(orderInfo),
-    vnp_OrderType: "other",
-    vnp_Amount: Math.round(Number(amount) * 100),
-    vnp_ReturnUrl: env.vnpay.returnUrl,
-    vnp_IpAddr: sanitizeIp(ipAddr),
-    vnp_CreateDate: formatDate(now),
-    vnp_ExpireDate: formatDate(expire),
-  };
+  let ip = ipAddr || "127.0.0.1";
+  if (ip === "::1") ip = "127.0.0.1";
+  if (ip.startsWith("::ffff:")) ip = ip.slice(7);
 
-  const sortedParams = sortObject(params);
-  // Tạo Hash với dữ liệu đã được sort
-  sortedParams.vnp_SecureHash = createSecureHash(sortedParams);
+  let tmnCode = env.vnpay.tmnCode;
+  let secretKey = env.vnpay.hashSecret;
+  let vnpUrl = env.vnpay.paymentUrl;
+  let returnUrl = env.vnpay.returnUrl;
 
-  // Tạo URL: Lưu ý dùng encode: true cho URL cuối cùng
-  return `${env.vnpay.paymentUrl}?${qs.stringify(sortedParams, { encode: true })}`;
+  let vnp_Params = {};
+  vnp_Params['vnp_Version'] = '2.1.0';
+  vnp_Params['vnp_Command'] = 'pay';
+  vnp_Params['vnp_TmnCode'] = tmnCode;
+  vnp_Params['vnp_Locale'] = 'vn';
+  vnp_Params['vnp_CurrCode'] = 'VND';
+  vnp_Params['vnp_TxnRef'] = orderRef;
+  
+  // Lọc sạch tiếng Việt có dấu và ký tự lạ để tránh lệch chuỗi hash
+  vnp_Params['vnp_OrderInfo'] = String(orderInfo || 'Thanh toan don hang')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .replace(/[^\w\s]/gi, ' ')
+    .trim() || "Thanh toan don hang";
+    
+  vnp_Params['vnp_OrderType'] = 'other';
+  vnp_Params['vnp_Amount'] = Math.round(Number(amount) * 100);
+  vnp_Params['vnp_ReturnUrl'] = returnUrl;
+  vnp_Params['vnp_IpAddr'] = ip;
+  vnp_Params['vnp_CreateDate'] = formatDate(date);
+  vnp_Params['vnp_ExpireDate'] = formatDate(expireDate);
+
+  // 1. Sort và Encode theo chuẩn VNPay
+  vnp_Params = sortObject(vnp_Params);
+
+  // 2. Tạo chuỗi băm (encode: false vì hàm sortObject đã encode rồi)
+  let signData = qs.stringify(vnp_Params, { encode: false });
+  let hmac = crypto.createHmac("sha512", secretKey);
+  let signed = hmac.update(Buffer.from(signData, 'utf-8')).digest("hex"); 
+  vnp_Params['vnp_SecureHash'] = signed;
+
+  // 3. Nối URL
+  vnpUrl += '?' + qs.stringify(vnp_Params, { encode: false });
+  
+  console.log("URL gửi đi:", vnpUrl); // Debug URL
+  return vnpUrl;
 }
 
 function verifyVnpayReturn(query) {
-  const rawParams = {};
-  Object.keys(query).forEach(key => {
-    if (key.startsWith('vnp_')) rawParams[key] = query[key];
-  });
+  let vnp_Params = { ...query };
+  let secureHash = vnp_Params['vnp_SecureHash'];
 
-  const secureHash = String(rawParams.vnp_SecureHash || "").toLowerCase();
-  delete rawParams.vnp_SecureHash;
-  delete rawParams.vnp_SecureHashType;
+  delete vnp_Params['vnp_SecureHash'];
+  delete vnp_Params['vnp_SecureHashType'];
 
-  const sorted = sortObject(rawParams);
-  // Băm lại với cùng cấu hình qs encode: true
-  const expected = createSecureHash(sorted).toLowerCase();
-  
-  return secureHash === expected;
+  vnp_Params = sortObject(vnp_Params);
+
+  let secretKey = env.vnpay.hashSecret;
+  let signData = qs.stringify(vnp_Params, { encode: false });
+  let hmac = crypto.createHmac("sha512", secretKey);
+  let signed = hmac.update(Buffer.from(signData, 'utf-8')).digest("hex");     
+
+  return secureHash === signed;
 }
 
-module.exports = { buildVnpayPaymentUrl, verifyVnpayReturn, sanitizeOrderInfo };
+module.exports = { buildVnpayPaymentUrl, verifyVnpayReturn };
