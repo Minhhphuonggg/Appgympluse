@@ -1,129 +1,33 @@
-const ApiError = require("../utils/apiError");
-const { addDays, toSqlDateTime } = require("../utils/date");
-const { generateQrDataUrl } = require("../utils/qr");
 const { buildVnpayPaymentUrl, verifyVnpayReturn } = require("../utils/vnpay");
-const { findPlanById } = require("../models/membershipPlan.model");
-const {
-  createPaymentTransaction,
-  findPaymentByOrderRef,
-  updatePaymentStatus,
-} = require("../models/paymentTransaction.model");
-const {
-  createUserMembership,
-  findUserMembershipById,
-} = require("../models/userMembership.model");
 
-async function createMembershipPayment(userId, planId, ipAddr) {
-  const plan = await findPlanById(planId);
-
-  if (!plan || plan.status !== "active") {
-    throw new ApiError(404, "Membership plan is not available");
+const createPaymentUrl = async (orderData) => {
+  // Đảm bảo amount là số nguyên, nếu không hợp lệ thì mặc định là 0 để tránh crash
+  const amount = parseInt(orderData.amount) || 0;
+  
+  if (amount <= 0) {
+    throw new Error("Số tiền thanh toán không hợp lệ.");
   }
-
-  const orderRef = `GYM_${Date.now()}_${userId}`;
-
-  await createPaymentTransaction({
-    userId,
-    planId,
-    orderRef,
-    amount: plan.price,
+  
+  return buildVnpayPaymentUrl({
+    amount: amount,
+    orderRef: orderData.order_ref,
+    orderInfo: "Thanh toan gym", // Đảm bảo chuỗi này không chứa ký tự đặc biệt lạ
+    ipAddr: orderData.ip
   });
-
-  const paymentUrl = buildVnpayPaymentUrl({
-    amount: plan.price,
-    orderRef,
-    orderInfo: `Thanh toan goi ${plan.name}`,
-    ipAddr: Array.isArray(ipAddr) ? ipAddr[0] : String(ipAddr || "").split(",")[0].trim(),
-  });
-
-  return {
-    orderRef,
-    paymentUrl,
-    amount: plan.price,
-  };
-}
-
-async function handleVnpayCallback(query) {
-  const signatureValid = verifyVnpayReturn(query);
-  if (!signatureValid) {
-    throw new ApiError(400, "Invalid VNPAY signature");
-  }
-
-  const orderRef = query.vnp_TxnRef;
-  const responseCode = query.vnp_ResponseCode;
-
-  const payment = await findPaymentByOrderRef(orderRef);
-
-  if (!payment) {
-    throw new ApiError(404, "Payment transaction not found");
-  }
-
-  if (payment.status === "success" && payment.membership_id) {
-    const existingMembership = await findUserMembershipById(payment.membership_id);
-    return {
-      status: "success",
-      membership: existingMembership,
-      orderRef,
-    };
-  }
-
-  if (responseCode !== "00") {
-    await updatePaymentStatus({
-      id: payment.id,
-      status: "failed",
-      rawResponse: JSON.stringify(query),
-    });
-
-    return {
-      status: "failed",
-      orderRef,
-      responseCode,
-    };
-  }
-
-  const plan = await findPlanById(payment.plan_id);
-  if (!plan) {
-    throw new ApiError(404, "Membership plan not found");
-  }
-
-  const startDate = new Date();
-  const endDate = addDays(startDate, Number(plan.duration_days));
-
-  const qrPayload = JSON.stringify({
-    type: "gym-membership",
-    userId: payment.user_id,
-    planId: payment.plan_id,
-    orderRef,
-    validUntil: endDate.toISOString(),
-  });
-
-  const qrCode = await generateQrDataUrl(qrPayload);
-
-  const membership = await createUserMembership({
-    userId: payment.user_id,
-    planId: payment.plan_id,
-    startDate: toSqlDateTime(startDate),
-    endDate: toSqlDateTime(endDate),
-    price: payment.amount,
-    qrCode,
-    status: "active",
-  });
-
-  await updatePaymentStatus({
-    id: payment.id,
-    status: "success",
-    membershipId: membership.id,
-    rawResponse: JSON.stringify(query),
-  });
-
-  return {
-    status: "success",
-    membership,
-    orderRef,
-  };
-}
-
-module.exports = {
-  createMembershipPayment,
-  handleVnpayCallback,
 };
+
+const handleVnpayCallback = async (query) => {
+  // 1. Kiểm tra chữ ký
+  const isVerified = verifyVnpayReturn(query);
+  if (!isVerified) {
+    console.error("DEBUG: Chữ ký không khớp!", query);
+    throw new Error("Invalid signature");
+  }
+  
+  // 2. Tại đây bạn viết code update trạng thái đơn hàng vào Database
+  // Ví dụ: await Order.update({ status: 'paid' }, { where: { order_ref: query.vnp_TxnRef } });
+  
+  return { success: true };
+};
+
+module.exports = { createPaymentUrl, handleVnpayCallback };
