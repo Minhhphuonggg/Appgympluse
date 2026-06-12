@@ -18,26 +18,17 @@ function toNumber(value, fallback) {
 
 function toCsv(value) {
   if (!value) return [];
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  return value.split(",").map((item) => item.trim()).filter(Boolean);
 }
 
 function toNonNegativeInteger(value, fallback) {
   const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed) || parsed < 0) {
-    return fallback;
-  }
-  return parsed;
+  return (Number.isNaN(parsed) || parsed < 0) ? fallback : parsed;
 }
 
 function toPositiveInteger(value, fallback) {
   const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed) || parsed <= 0) {
-    return fallback;
-  }
-  return parsed;
+  return (Number.isNaN(parsed) || parsed <= 0) ? fallback : parsed;
 }
 
 const env = {
@@ -57,8 +48,9 @@ const env = {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   },
   vnpay: {
-    tmnCode: process.env.VNPAY_TMN_CODE || "",
-    hashSecret: process.env.VNPAY_HASH_SECRET || "",
+    // Sửa lại theo đúng tên biến trên Render
+    tmnCode: process.env.VNPAY_TMNCODE || "",
+    hashSecret: process.env.VNPAY_HASHSECRET || "",
     paymentUrl: process.env.VNPAY_PAYMENT_URL || "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
     returnUrl: process.env.VNPAY_RETURN_URL || "",
   },
@@ -78,5 +70,12 @@ const env = {
     apiSecret: process.env.CLOUDINARY_API_SECRET || "",
   },
 };
+
+// Kiểm tra nhanh khi khởi động server
+if (!env.vnpay.tmnCode || !env.vnpay.hashSecret) {
+  console.error("!!! LỖI: VNPAY_TMNCODE hoặc VNPAY_HASHSECRET chưa được tải từ biến môi trường !!!");
+} else {
+  console.log(">>> VNPAY Config loaded successfully!");
+}
 
 module.exports = env;
