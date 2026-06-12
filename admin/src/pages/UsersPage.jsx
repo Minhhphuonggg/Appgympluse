@@ -80,8 +80,11 @@ export default function UsersPage() {
   const [membershipUser, setMembershipUser] = useState(null);
   const [membershipForm, setMembershipForm] = useState({ planId: "", price: "" });
 
-  const canManageUsers = user?.role === "admin";
-  const canAssignMembership = user?.role === "admin" || user?.role === "staff";
+  // PHÂN QUYỀN MỚI
+  const isAdmin = user?.role === "admin";
+  const isStaff = user?.role === "staff";
+  const canManageUsers = isAdmin || isStaff; // Cả Admin và Staff đều được quản lý
+  const canAssignMembership = isAdmin || isStaff;
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -213,6 +216,7 @@ export default function UsersPage() {
         email: userForm.email,
         phone: userForm.phone || undefined,
         avatar: userForm.avatar || undefined,
+        // Dù staff submit thì backend cũng phải có cơ chế chặn thay đổi role/status
         role: userForm.role,
         status: userForm.status,
       };
@@ -254,12 +258,18 @@ export default function UsersPage() {
     }
   };
 
-  const removeUser = async (userId) => {
-    const accepted = window.confirm("Xóa hội viên này?");
+  const removeUser = async (row) => {
+    // Chặn ngay từ client nếu cố tình xóa admin
+    if (row.role === "admin" && !isAdmin) {
+      setError("Bạn không có quyền xóa quản trị viên.");
+      return;
+    }
+
+    const accepted = window.confirm(`Bạn có chắc chắn muốn xóa hội viên: ${row.name}?`);
     if (!accepted) return;
 
     try {
-      await apiRequest({ method: "DELETE", url: `/api/admin/users/${userId}` });
+      await apiRequest({ method: "DELETE", url: `/api/admin/users/${row.id}` });
       setSnackbar("Đã xóa hội viên");
       await fetchUsers();
     } catch (err) {
@@ -268,6 +278,7 @@ export default function UsersPage() {
   };
 
   const updateStatus = async (userId, status) => {
+    if (!isAdmin) return;
     try {
       await apiRequest({
         method: "PATCH",
@@ -282,6 +293,7 @@ export default function UsersPage() {
   };
 
   const updateRole = async (userId, role) => {
+    if (!isAdmin) return;
     try {
       await apiRequest({
         method: "PATCH",
@@ -506,7 +518,8 @@ export default function UsersPage() {
                         label={roleLabelMap[row.role] || row.role}
                         color={row.role === "admin" ? "secondary" : "default"}
                       />
-                      {canManageUsers && (
+                      {/* CHỈ ADMIN MỚI ĐƯỢC SỬA VAI TRÒ TRỰC TIẾP */}
+                      {isAdmin && (
                         <FormControl size="small" sx={{ minWidth: 110 }}>
                           <Select value={row.role} onChange={(event) => updateRole(row.id, event.target.value)}>
                             {roleOptions.map((role) => (
@@ -526,7 +539,8 @@ export default function UsersPage() {
                         label={statusLabelMap[row.status] || row.status}
                         color={row.status === "active" ? "primary" : "warning"}
                       />
-                      {canManageUsers && (
+                      {/* CHỈ ADMIN MỚI ĐƯỢC SỬA TRẠNG THÁI TRỰC TIẾP */}
+                      {isAdmin && (
                         <FormControl size="small" sx={{ minWidth: 120 }}>
                           <Select value={row.status} onChange={(event) => updateStatus(row.id, event.target.value)}>
                             {statusOptions.map((status) => (
@@ -541,19 +555,22 @@ export default function UsersPage() {
                   </TableCell>
                   {canManageUsers && (
                     <TableCell align="right">
-                      <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => openEditDialog(row)}>
-                          Sửa
-                        </Button>
-                        <Button
-                          size="small"
-                          color="error"
-                          startIcon={<DeleteRoundedIcon />}
-                          onClick={() => removeUser(row.id)}
-                        >
-                          Xóa
-                        </Button>
-                      </Stack>
+                      {/* ẨN NÚT SỬA/XÓA NẾU LÀ STAFF VÀ ĐANG XEM TÀI KHOẢN CỦA ADMIN */}
+                      {(isAdmin || row.role !== "admin") && (
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => openEditDialog(row)}>
+                            Sửa
+                          </Button>
+                          <Button
+                            size="small"
+                            color="error"
+                            startIcon={<DeleteRoundedIcon />}
+                            onClick={() => removeUser(row)}
+                          >
+                            Xóa
+                          </Button>
+                        </Stack>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -628,36 +645,39 @@ export default function UsersPage() {
               </Stack>
             </Stack>
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <FormControl fullWidth>
-                <InputLabel>Vai trò</InputLabel>
-                <Select
-                  label="Vai trò"
-                  value={userForm.role}
-                  onChange={(event) => setUserForm((prev) => ({ ...prev, role: event.target.value }))}
-                >
-                  {roleOptions.map((role) => (
-                    <MenuItem key={role} value={role}>
-                      {roleLabelMap[role] || role}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Trạng thái</InputLabel>
-                <Select
-                  label="Trạng thái"
-                  value={userForm.status}
-                  onChange={(event) => setUserForm((prev) => ({ ...prev, status: event.target.value }))}
-                >
-                  {statusOptions.map((status) => (
-                    <MenuItem key={status} value={status}>
-                      {statusLabelMap[status] || status}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Stack>
+            {/* CHỈ ADMIN MỚI ĐƯỢC THAY ĐỔI VAI TRÒ VÀ TRẠNG THÁI TRONG FORM NÀY */}
+            {isAdmin && (
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <FormControl fullWidth>
+                  <InputLabel>Vai trò</InputLabel>
+                  <Select
+                    label="Vai trò"
+                    value={userForm.role}
+                    onChange={(event) => setUserForm((prev) => ({ ...prev, role: event.target.value }))}
+                  >
+                    {roleOptions.map((role) => (
+                      <MenuItem key={role} value={role}>
+                        {roleLabelMap[role] || role}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel>Trạng thái</InputLabel>
+                  <Select
+                    label="Trạng thái"
+                    value={userForm.status}
+                    onChange={(event) => setUserForm((prev) => ({ ...prev, status: event.target.value }))}
+                  >
+                    {statusOptions.map((status) => (
+                      <MenuItem key={status} value={status}>
+                        {statusLabelMap[status] || status}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
