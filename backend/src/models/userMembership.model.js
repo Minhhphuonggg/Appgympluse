@@ -77,4 +77,4 @@ module.exports = {
   findActiveMembershipByUserId,
   deactivateActiveMembershipsByUserId,
   deleteUserMembershipById, // Export
-};
+}; 
