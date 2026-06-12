@@ -4,7 +4,7 @@ const ApiError = require("./apiError");
 
 // Hàm format date chuẩn GMT+7
 function formatDate(date) {
-  // Cộng thêm 7 tiếng vào thời gian UTC để ra giờ VN
+  // Lấy thời gian đã cộng 7 tiếng
   const vnDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
   
   const pad = (num) => String(num).padStart(2, "0");
@@ -14,13 +14,11 @@ function formatDate(date) {
 function sortObject(input) {
   const sorted = {};
   const keys = Object.keys(input).sort();
-
   keys.forEach((key) => {
     if (input[key] !== undefined && input[key] !== null && input[key] !== "") {
       sorted[key] = input[key];
     }
   });
-
   return sorted;
 }
 
@@ -30,14 +28,12 @@ function encodeVnpayValue(value) {
 
 function normalizeParams(input) {
   const normalized = {};
-
   Object.keys(input).forEach((key) => {
     const value = input[key];
     if (value !== undefined && value !== null && value !== "") {
       normalized[key] = String(value);
     }
   });
-
   return normalized;
 }
 
@@ -50,36 +46,26 @@ function sanitizeOrderInfo(orderInfo) {
     .replace(/[^\w\s.,:;/-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-
-  if (!normalized) {
-    return "Thanh toan goi hoi vien";
-  }
-
-  return normalized.slice(0, 255);
+  return normalized || "Thanh toan goi hoi vien";
 }
 
 function sanitizeIp(ipAddr) {
   if (!ipAddr) return "127.0.0.1";
-
   const ip = String(ipAddr).trim();
-  if (!ip) return "127.0.0.1";
-  if (ip === "::1") return "127.0.0.1";
+  if (!ip || ip === "::1") return "127.0.0.1";
   if (ip.startsWith("::ffff:")) return ip.slice(7);
-
   return ip;
 }
 
-function buildQueryString(params) {
-  // Chú ý: buildQueryString này dùng sortObject riêng nội bộ
-  const sorted = sortObject(normalizeParams(params));
-
-  return Object.keys(sorted)
-    .map((key) => `${encodeVnpayValue(key)}=${encodeVnpayValue(sorted[key])}`)
+// Hàm này CHỈ làm nhiệm vụ nối chuỗi, không sort lại để tránh sai sót
+function buildQueryString(sortedParams) {
+  return Object.keys(sortedParams)
+    .map((key) => `${encodeVnpayValue(key)}=${encodeVnpayValue(sortedParams[key])}`)
     .join("&");
 }
 
-function createSecureHash(params) {
-  const signData = buildQueryString(params);
+function createSecureHash(sortedParams) {
+  const signData = buildQueryString(sortedParams);
   return crypto.createHmac("sha512", env.vnpay.hashSecret).update(Buffer.from(signData, "utf-8")).digest("hex");
 }
 
@@ -107,10 +93,14 @@ function buildVnpayPaymentUrl({ amount, orderRef, orderInfo, ipAddr }) {
     vnp_ExpireDate: formatDate(expire),
   };
 
-  const vnpParams = sortObject(params);
-  vnpParams.vnp_SecureHash = createSecureHash(vnpParams);
+  // 1. Chuẩn hóa và Sắp xếp tham số
+  const sortedParams = sortObject(normalizeParams(params));
+  
+  // 2. Tạo chữ ký từ bộ tham số ĐÃ SẮP XẾP
+  sortedParams.vnp_SecureHash = createSecureHash(sortedParams);
 
-  return `${env.vnpay.paymentUrl}?${buildQueryString(vnpParams)}`;
+  // 3. Xây dựng URL
+  return `${env.vnpay.paymentUrl}?${buildQueryString(sortedParams)}`;
 }
 
 function verifyVnpayReturn(query) {
@@ -120,7 +110,10 @@ function verifyVnpayReturn(query) {
   delete cloned.vnp_SecureHash;
   delete cloned.vnp_SecureHashType;
 
-  const expected = createSecureHash(cloned).toLowerCase();
+  // Sắp xếp lại trước khi verify để khớp với lúc tạo
+  const sorted = sortObject(cloned);
+  const expected = createSecureHash(sorted).toLowerCase();
+  
   return secureHash === expected;
 }
 
