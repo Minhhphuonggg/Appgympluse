@@ -1,99 +1,126 @@
 const crypto = require("crypto");
 const env = require("../config/env");
-const qs = require("qs");
+const ApiError = require("./apiError");
 
 function formatDate(date) {
-  const vnDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
   const pad = (num) => String(num).padStart(2, "0");
-  return `${vnDate.getUTCFullYear()}${pad(vnDate.getUTCMonth() + 1)}${pad(vnDate.getUTCDate())}${pad(vnDate.getUTCHours())}${pad(vnDate.getUTCMinutes())}${pad(vnDate.getUTCSeconds())}`;
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 }
 
-// HÀM SORT VÀ ENCODE CHUẨN 100% THEO TÀI LIỆU VNPAY
-function sortObject(obj) {
-  let sorted = {};
-  let str = [];
-  let key;
-  for (key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      str.push(encodeURIComponent(key));
+function sortObject(input) {
+  const sorted = {};
+  const keys = Object.keys(input).sort();
+
+  keys.forEach((key) => {
+    if (input[key] !== undefined && input[key] !== null && input[key] !== "") {
+      sorted[key] = input[key];
     }
-  }
-  str.sort();
-  for (key = 0; key < str.length; key++) {
-    // VNPay yêu cầu encode value và thay thế %20 bằng dấu +
-    sorted[str[key]] = encodeURIComponent(obj[str[key]]).replace(/%20/g, "+");
-  }
+  });
+
   return sorted;
 }
 
-function buildVnpayPaymentUrl({ amount, orderRef, orderInfo, ipAddr }) {
-  let date = new Date();
-  let expireDate = new Date(date.getTime() + 15 * 60 * 1000);
+function encodeVnpayValue(value) {
+  return encodeURIComponent(String(value)).replace(/%20/g, "+");
+}
 
-  let ip = ipAddr || "127.0.0.1";
-  if (ip === "::1") ip = "127.0.0.1";
-  if (ip.startsWith("::ffff:")) ip = ip.slice(7);
+function normalizeParams(input) {
+  const normalized = {};
 
-  let tmnCode = env.vnpay.tmnCode;
-  let secretKey = env.vnpay.hashSecret;
-  let vnpUrl = env.vnpay.paymentUrl;
-  let returnUrl = env.vnpay.returnUrl;
+  Object.keys(input).forEach((key) => {
+    const value = input[key];
+    if (value !== undefined && value !== null && value !== "") {
+      normalized[key] = String(value);
+    }
+  });
 
-  let vnp_Params = {};
-  vnp_Params['vnp_Version'] = '2.1.0';
-  vnp_Params['vnp_Command'] = 'pay';
-  vnp_Params['vnp_TmnCode'] = tmnCode;
-  vnp_Params['vnp_Locale'] = 'vn';
-  vnp_Params['vnp_CurrCode'] = 'VND';
-  vnp_Params['vnp_TxnRef'] = orderRef;
-  
-  // Lọc sạch tiếng Việt có dấu và ký tự lạ để tránh lệch chuỗi hash
-  vnp_Params['vnp_OrderInfo'] = String(orderInfo || 'Thanh toan don hang')
+  return normalized;
+}
+
+function sanitizeOrderInfo(orderInfo) {
+  const normalized = String(orderInfo || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/đ/g, "d")
     .replace(/Đ/g, "D")
-    .replace(/[^\w\s]/gi, ' ')
-    .trim() || "Thanh toan don hang";
-    
-  vnp_Params['vnp_OrderType'] = 'other';
-  vnp_Params['vnp_Amount'] = Math.round(Number(amount) * 100);
-  vnp_Params['vnp_ReturnUrl'] = returnUrl;
-  vnp_Params['vnp_IpAddr'] = ip;
-  vnp_Params['vnp_CreateDate'] = formatDate(date);
-  vnp_Params['vnp_ExpireDate'] = formatDate(expireDate);
+    .replace(/[^\w\s.,:;/-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  // 1. Sort và Encode theo chuẩn VNPay
-  vnp_Params = sortObject(vnp_Params);
+  if (!normalized) {
+    return "Thanh toan goi hoi vien";
+  }
 
-  // 2. Tạo chuỗi băm (encode: false vì hàm sortObject đã encode rồi)
-  let signData = qs.stringify(vnp_Params, { encode: false });
-  let hmac = crypto.createHmac("sha512", secretKey);
-  let signed = hmac.update(Buffer.from(signData, 'utf-8')).digest("hex"); 
-  vnp_Params['vnp_SecureHash'] = signed;
+  return normalized.slice(0, 255);
+}
 
-  // 3. Nối URL
-  vnpUrl += '?' + qs.stringify(vnp_Params, { encode: false });
-  
-  console.log("URL gửi đi:", vnpUrl); // Debug URL
-  return vnpUrl;
+function sanitizeIp(ipAddr) {
+  if (!ipAddr) return "127.0.0.1";
+
+  const ip = String(ipAddr).trim();
+  if (!ip) return "127.0.0.1";
+  if (ip === "::1") return "127.0.0.1";
+  if (ip.startsWith("::ffff:")) return ip.slice(7);
+
+  return ip;
+}
+
+function buildQueryString(params) {
+  const sorted = sortObject(normalizeParams(params));
+
+  return Object.keys(sorted)
+    .map((key) => `${encodeVnpayValue(key)}=${encodeVnpayValue(sorted[key])}`)
+    .join("&");
+}
+
+function createSecureHash(params) {
+  const signData = buildQueryString(params);
+  return crypto.createHmac("sha512", env.vnpay.hashSecret).update(Buffer.from(signData, "utf-8")).digest("hex");
+}
+
+function buildVnpayPaymentUrl({ amount, orderRef, orderInfo, ipAddr }) {
+  if (!env.vnpay.tmnCode || !env.vnpay.hashSecret || !env.vnpay.returnUrl) {
+    throw new ApiError(500, "VNPAY config is missing");
+  }
+
+  const now = new Date();
+  const expire = new Date(now.getTime() + 15 * 60 * 1000);
+
+  const params = {
+    vnp_Version: "2.1.0",
+    vnp_Command: "pay",
+    vnp_TmnCode: env.vnpay.tmnCode,
+    vnp_Locale: "vn",
+    vnp_CurrCode: "VND",
+    vnp_TxnRef: orderRef,
+    vnp_OrderInfo: sanitizeOrderInfo(orderInfo),
+    vnp_OrderType: "other",
+    vnp_Amount: Math.round(Number(amount) * 100),
+    vnp_ReturnUrl: env.vnpay.returnUrl,
+    vnp_IpAddr: sanitizeIp(ipAddr),
+    vnp_CreateDate: formatDate(now),
+    vnp_ExpireDate: formatDate(expire),
+  };
+
+  const vnpParams = sortObject(params);
+  vnpParams.vnp_SecureHash = createSecureHash(vnpParams);
+
+  return `${env.vnpay.paymentUrl}?${buildQueryString(vnpParams)}`;
 }
 
 function verifyVnpayReturn(query) {
-  let vnp_Params = { ...query };
-  let secureHash = vnp_Params['vnp_SecureHash'];
+  const cloned = normalizeParams(query);
+  const secureHash = String(cloned.vnp_SecureHash || "").toLowerCase();
 
-  delete vnp_Params['vnp_SecureHash'];
-  delete vnp_Params['vnp_SecureHashType'];
+  delete cloned.vnp_SecureHash;
+  delete cloned.vnp_SecureHashType;
 
-  vnp_Params = sortObject(vnp_Params);
-
-  let secretKey = env.vnpay.hashSecret;
-  let signData = qs.stringify(vnp_Params, { encode: false });
-  let hmac = crypto.createHmac("sha512", secretKey);
-  let signed = hmac.update(Buffer.from(signData, 'utf-8')).digest("hex");     
-
-  return secureHash === signed;
+  const expected = createSecureHash(cloned).toLowerCase();
+  return secureHash === expected;
 }
 
-module.exports = { buildVnpayPaymentUrl, verifyVnpayReturn };
+module.exports = {
+  buildVnpayPaymentUrl,
+  verifyVnpayReturn,
+  sanitizeOrderInfo,
+};
