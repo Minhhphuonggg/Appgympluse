@@ -3,18 +3,8 @@ const env = require("../config/env");
 const ApiError = require("./apiError");
 
 function formatDate(date) {
-  // 1. Lấy độ lệch múi giờ của server hiện tại
-  const utcOffset = date.getTimezoneOffset() * 60000;
-  
-  // 2. Ép thời gian về mốc chuẩn UTC (0)
-  const utcTime = date.getTime() + utcOffset;
-  
-  // 3. Chủ động cộng thêm 7 tiếng (Múi giờ Việt Nam GMT+7)
-  const vnTime = new Date(utcTime + (7 * 60 * 60 * 1000));
-
-  // 4. Format lại theo chuẩn VNPAY
   const pad = (num) => String(num).padStart(2, "0");
-  return `${vnTime.getFullYear()}${pad(vnTime.getMonth() + 1)}${pad(vnTime.getDate())}${pad(vnTime.getHours())}${pad(vnTime.getMinutes())}${pad(vnTime.getSeconds())}`;
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 }
 
 function sortObject(input) {
