@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const env = require("../config/env");
 const ApiError = require("./apiError");
+const qs = require("qs"); // Sử dụng thư viện qs đã cài
 
 function formatDate(date) {
   const vnDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
@@ -18,18 +19,10 @@ function sortObject(input) {
   return sorted;
 }
 
-function encodeVnpayValue(value) {
-  return encodeURIComponent(String(value)).replace(/%20/g, "+");
-}
-
-function buildQueryString(sortedParams) {
-  return Object.keys(sortedParams)
-    .map((key) => `${encodeVnpayValue(key)}=${encodeVnpayValue(sortedParams[key])}`)
-    .join("&");
-}
-
+// Hàm tạo hash chuẩn xác
 function createSecureHash(sortedParams) {
-  const signData = buildQueryString(sortedParams);
+  // Dùng encode: false để không thay đổi các ký tự đặc biệt
+  const signData = qs.stringify(sortedParams, { encode: false });
   return crypto.createHmac("sha512", env.vnpay.hashSecret).update(Buffer.from(signData, "utf-8")).digest("hex");
 }
 
@@ -69,31 +62,24 @@ function buildVnpayPaymentUrl({ amount, orderRef, orderInfo, ipAddr }) {
   const sortedParams = sortObject(params);
   sortedParams.vnp_SecureHash = createSecureHash(sortedParams);
 
-  return `${env.vnpay.paymentUrl}?${buildQueryString(sortedParams)}`;
+  // Tạo URL thanh toán
+  return `${env.vnpay.paymentUrl}?${qs.stringify(sortedParams, { encode: false })}`;
 }
 
 function verifyVnpayReturn(query) {
-  // 1. Chỉ lấy các tham số bắt đầu bằng vnp_
   const rawParams = {};
   Object.keys(query).forEach(key => {
-    if (key.startsWith('vnp_')) {
-      rawParams[key] = query[key];
-    }
+    if (key.startsWith('vnp_')) rawParams[key] = query[key];
   });
 
   const secureHash = String(rawParams.vnp_SecureHash || "").toLowerCase();
   delete rawParams.vnp_SecureHash;
   delete rawParams.vnp_SecureHashType;
 
-  // 2. Sắp xếp đúng theo chuẩn VNPay
   const sorted = sortObject(rawParams);
   const expected = createSecureHash(sorted).toLowerCase();
-  
-  // LOG ĐỂ KIỂM TRA TRÊN RENDER
-  console.log("VNPay Hash:", secureHash);
-  console.log("Calculated Hash:", expected);
   
   return secureHash === expected;
 }
 
-module.exports = { buildVnpayPaymentUrl, verifyVnpayReturn, sanitizeOrderInfo };
+module.exports = { buildVnpayPaymentUrl, verifyVnpayReturn, sanitizeOrderInfo }; 
