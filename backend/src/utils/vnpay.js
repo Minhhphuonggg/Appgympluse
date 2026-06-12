@@ -2,9 +2,13 @@ const crypto = require("crypto");
 const env = require("../config/env");
 const ApiError = require("./apiError");
 
+// Hàm format date chuẩn GMT+7
 function formatDate(date) {
+  // Cộng thêm 7 tiếng vào thời gian UTC để ra giờ VN
+  const vnDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+  
   const pad = (num) => String(num).padStart(2, "0");
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+  return `${vnDate.getUTCFullYear()}${pad(vnDate.getUTCMonth() + 1)}${pad(vnDate.getUTCDate())}${pad(vnDate.getUTCHours())}${pad(vnDate.getUTCMinutes())}${pad(vnDate.getUTCSeconds())}`;
 }
 
 function sortObject(input) {
@@ -66,6 +70,7 @@ function sanitizeIp(ipAddr) {
 }
 
 function buildQueryString(params) {
+  // Chú ý: buildQueryString này dùng sortObject riêng nội bộ
   const sorted = sortObject(normalizeParams(params));
 
   return Object.keys(sorted)
