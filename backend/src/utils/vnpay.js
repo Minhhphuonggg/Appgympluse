@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const env = require("../config/env");
 const ApiError = require("./apiError");
-const qs = require("qs"); // Sử dụng thư viện qs đã cài
+const qs = require("qs");
 
 function formatDate(date) {
   const vnDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
@@ -19,10 +19,10 @@ function sortObject(input) {
   return sorted;
 }
 
-// Hàm tạo hash chuẩn xác
+// CẤU HÌNH QUAN TRỌNG: VNPay yêu cầu encode URL cho dữ liệu băm
 function createSecureHash(sortedParams) {
-  // Dùng encode: false để không thay đổi các ký tự đặc biệt
-  const signData = qs.stringify(sortedParams, { encode: false });
+  // Thay đổi: Sử dụng encode: true (mặc định của qs) để các ký tự đặc biệt được xử lý đúng chuẩn
+  const signData = qs.stringify(sortedParams, { encode: true });
   return crypto.createHmac("sha512", env.vnpay.hashSecret).update(Buffer.from(signData, "utf-8")).digest("hex");
 }
 
@@ -60,10 +60,11 @@ function buildVnpayPaymentUrl({ amount, orderRef, orderInfo, ipAddr }) {
   };
 
   const sortedParams = sortObject(params);
+  // Tạo Hash với dữ liệu đã được sort
   sortedParams.vnp_SecureHash = createSecureHash(sortedParams);
 
-  // Tạo URL thanh toán
-  return `${env.vnpay.paymentUrl}?${qs.stringify(sortedParams, { encode: false })}`;
+  // Tạo URL: Lưu ý dùng encode: true cho URL cuối cùng
+  return `${env.vnpay.paymentUrl}?${qs.stringify(sortedParams, { encode: true })}`;
 }
 
 function verifyVnpayReturn(query) {
@@ -77,9 +78,10 @@ function verifyVnpayReturn(query) {
   delete rawParams.vnp_SecureHashType;
 
   const sorted = sortObject(rawParams);
+  // Băm lại với cùng cấu hình qs encode: true
   const expected = createSecureHash(sorted).toLowerCase();
   
   return secureHash === expected;
 }
 
-module.exports = { buildVnpayPaymentUrl, verifyVnpayReturn, sanitizeOrderInfo }; 
+module.exports = { buildVnpayPaymentUrl, verifyVnpayReturn, sanitizeOrderInfo };
