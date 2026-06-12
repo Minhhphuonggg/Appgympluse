@@ -80,8 +80,19 @@ export default function UsersPage() {
   const [membershipUser, setMembershipUser] = useState(null);
   const [membershipForm, setMembershipForm] = useState({ planId: "", price: "" });
 
-  const canManageUsers = user?.role === "admin";
-  const canAssignMembership = user?.role === "admin" || user?.role === "staff";
+  // ===== LOGIC PHÂN QUYỀN =====
+  const isAdmin = user?.role === "admin";
+  const isStaff = user?.role === "staff";
+  
+  const canManageUsers = isAdmin || isStaff; 
+  const canAssignMembership = isAdmin || isStaff;
+
+  const canModifyRow = (row) => {
+    if (isAdmin) return true; 
+    if (isStaff && row.role === "user") return true; 
+    return false; 
+  };
+  // ============================
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -213,7 +224,7 @@ export default function UsersPage() {
         email: userForm.email,
         phone: userForm.phone || undefined,
         avatar: userForm.avatar || undefined,
-        role: userForm.role,
+        role: isStaff ? "user" : userForm.role,
         status: userForm.status,
       };
 
@@ -254,12 +265,17 @@ export default function UsersPage() {
     }
   };
 
-  const removeUser = async (userId) => {
-    const accepted = window.confirm("Xóa hội viên này?");
+  const removeUser = async (row) => {
+    if (!canModifyRow(row)) {
+      setError("Bạn không có quyền xóa tài khoản nhân viên hoặc quản trị viên.");
+      return;
+    }
+
+    const accepted = window.confirm(`Bạn có chắc muốn xóa tài khoản: ${row.name}?`);
     if (!accepted) return;
 
     try {
-      await apiRequest({ method: "DELETE", url: `/api/admin/users/${userId}` });
+      await apiRequest({ method: "DELETE", url: `/api/admin/users/${row.id}` });
       setSnackbar("Đã xóa hội viên");
       await fetchUsers();
     } catch (err) {
@@ -267,11 +283,13 @@ export default function UsersPage() {
     }
   };
 
-  const updateStatus = async (userId, status) => {
+  const updateStatus = async (row, status) => {
+    if (!canModifyRow(row)) return;
+
     try {
       await apiRequest({
         method: "PATCH",
-        url: `/api/admin/users/${userId}/status`,
+        url: `/api/admin/users/${row.id}/status`,
         data: { status },
       });
       setSnackbar("Cập nhật trạng thái thành công");
@@ -282,6 +300,8 @@ export default function UsersPage() {
   };
 
   const updateRole = async (userId, role) => {
+    if (!isAdmin) return;
+
     try {
       await apiRequest({
         method: "PATCH",
@@ -358,6 +378,24 @@ export default function UsersPage() {
       setAssigningMembership(false);
     }
   };
+
+  // ===== HÀM HỦY THẺ HỘI VIÊN ĐÃ ĐƯỢC THÊM VÀO =====
+  const removeMembership = async (userId, membershipId) => {
+    const accepted = window.confirm("Bạn có chắc chắn muốn HỦY thẻ hội viên của người này không?");
+    if (!accepted) return;
+
+    try {
+      await apiRequest({
+        method: "DELETE",
+        url: `/api/admin/users/${userId}/memberships/${membershipId}`,
+      });
+      setSnackbar("Đã hủy thẻ hội viên thành công");
+      await fetchUsers(); // Gọi lại API để load lại danh sách sau khi xóa
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+  // ===============================================
 
   return (
     <Stack spacing={2}>
@@ -468,7 +506,7 @@ export default function UsersPage() {
                   <TableCell>
                     <Stack spacing={0.75} alignItems="flex-start">
                       {row.active_membership_id ? (
-                        <Stack spacing={0.35}>
+                        <Stack spacing={0.35} sx={{ mb: 1 }}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
                             {row.active_membership_plan_name || `Plan #${row.active_membership_plan_id}`}
                           </Typography>
@@ -478,7 +516,20 @@ export default function UsersPage() {
                           <Typography variant="caption" color="text.secondary">
                             Giá: {formatMoney(row.active_membership_price)}
                           </Typography>
-                          <Chip size="small" color="primary" label="Đang có hiệu lực" sx={{ width: "fit-content" }} />
+                          <Chip size="small" color="primary" label="Đang có hiệu lực" sx={{ width: "fit-content", mb: 0.5 }} />
+                          
+                          {/* NÚT HỦY THẺ HIỂN THỊ Ở ĐÂY KHI HỘI VIÊN ĐANG CÓ THẺ */}
+                          {canAssignMembership && row.role === "user" && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={() => removeMembership(row.id, row.active_membership_id)}
+                              sx={{ mt: 0.5, p: "2px 8px", fontSize: "0.75rem" }}
+                            >
+                              Hủy thẻ đang dùng
+                            </Button>
+                          )}
                         </Stack>
                       ) : (
                         <Typography variant="body2" color="text.secondary">
@@ -486,7 +537,7 @@ export default function UsersPage() {
                         </Typography>
                       )}
 
-                      {canAssignMembership && row.role === "user" && (
+                      {canAssignMembership && row.role === "user" && !row.active_membership_id && (
                         <Button
                           size="small"
                           variant="outlined"
@@ -506,7 +557,7 @@ export default function UsersPage() {
                         label={roleLabelMap[row.role] || row.role}
                         color={row.role === "admin" ? "secondary" : "default"}
                       />
-                      {canManageUsers && (
+                      {isAdmin && (
                         <FormControl size="small" sx={{ minWidth: 110 }}>
                           <Select value={row.role} onChange={(event) => updateRole(row.id, event.target.value)}>
                             {roleOptions.map((role) => (
@@ -526,9 +577,9 @@ export default function UsersPage() {
                         label={statusLabelMap[row.status] || row.status}
                         color={row.status === "active" ? "primary" : "warning"}
                       />
-                      {canManageUsers && (
+                      {canModifyRow(row) && (
                         <FormControl size="small" sx={{ minWidth: 120 }}>
-                          <Select value={row.status} onChange={(event) => updateStatus(row.id, event.target.value)}>
+                          <Select value={row.status} onChange={(event) => updateStatus(row, event.target.value)}>
                             {statusOptions.map((status) => (
                               <MenuItem key={status} value={status}>
                                 {statusLabelMap[status] || status}
@@ -541,19 +592,21 @@ export default function UsersPage() {
                   </TableCell>
                   {canManageUsers && (
                     <TableCell align="right">
-                      <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => openEditDialog(row)}>
-                          Sửa
-                        </Button>
-                        <Button
-                          size="small"
-                          color="error"
-                          startIcon={<DeleteRoundedIcon />}
-                          onClick={() => removeUser(row.id)}
-                        >
-                          Xóa
-                        </Button>
-                      </Stack>
+                      {canModifyRow(row) && (
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button size="small" startIcon={<EditRoundedIcon />} onClick={() => openEditDialog(row)}>
+                            Sửa
+                          </Button>
+                          <Button
+                            size="small"
+                            color="error"
+                            startIcon={<DeleteRoundedIcon />}
+                            onClick={() => removeUser(row)}
+                          >
+                            Xóa
+                          </Button>
+                        </Stack>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -629,20 +682,23 @@ export default function UsersPage() {
             </Stack>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <FormControl fullWidth>
-                <InputLabel>Vai trò</InputLabel>
-                <Select
-                  label="Vai trò"
-                  value={userForm.role}
-                  onChange={(event) => setUserForm((prev) => ({ ...prev, role: event.target.value }))}
-                >
-                  {roleOptions.map((role) => (
-                    <MenuItem key={role} value={role}>
-                      {roleLabelMap[role] || role}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              {isAdmin && (
+                <FormControl fullWidth>
+                  <InputLabel>Vai trò</InputLabel>
+                  <Select
+                    label="Vai trò"
+                    value={userForm.role}
+                    onChange={(event) => setUserForm((prev) => ({ ...prev, role: event.target.value }))}
+                  >
+                    {roleOptions.map((role) => (
+                      <MenuItem key={role} value={role}>
+                        {roleLabelMap[role] || role}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+              
               <FormControl fullWidth>
                 <InputLabel>Trạng thái</InputLabel>
                 <Select
