@@ -73,6 +73,14 @@ router.post(
   userController.adminAssignMembership
 );
 
+// [ĐÃ THÊM] - Route Hủy thẻ hội viên
+router.delete(
+  "/admin/users/:userId/memberships/:membershipId",
+  authenticate,
+  allowRoles("admin", "staff"),
+  userController.adminRemoveMembership
+);
+
 router.patch(
   "/admin/users/:userId/status",
   authenticate,

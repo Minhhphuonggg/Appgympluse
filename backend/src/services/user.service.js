@@ -12,6 +12,7 @@ const { findPlanById } = require("../models/membershipPlan.model");
 const {
   createUserMembership,
   deactivateActiveMembershipsByUserId,
+  deleteUserMembershipById, // [ĐÃ THÊM] Import hàm xóa
 } = require("../models/userMembership.model");
 const { hashPassword } = require("../utils/password");
 const { addDays, toSqlDateTime } = require("../utils/date");
@@ -213,6 +214,16 @@ async function adminAssignMembership(userId, payload, actorId) {
   });
 }
 
+// [ĐÃ THÊM] - Service Hủy thẻ
+async function adminRemoveMembership(userId, membershipId) {
+  const user = await findUserById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  await deleteUserMembershipById(membershipId);
+}
+
 module.exports = {
   getMyProfile,
   updateMyProfile,
@@ -222,6 +233,7 @@ module.exports = {
   adminUpdateUser,
   adminDeleteUser,
   adminAssignMembership,
+  adminRemoveMembership, // Export
   adminUpdateStatus,
   adminUpdateRole,
 };

@@ -62,10 +62,19 @@ async function deactivateActiveMembershipsByUserId(userId, nextStatus = "cancell
   );
 }
 
+// [ĐÃ THÊM] - Model xóa cứng khỏi Database
+async function deleteUserMembershipById(id) {
+  await execute(
+    `DELETE FROM user_memberships WHERE id = ?`,
+    [id]
+  );
+}
+
 module.exports = {
   createUserMembership,
   findUserMembershipById,
   listUserMemberships,
   findActiveMembershipByUserId,
   deactivateActiveMembershipsByUserId,
+  deleteUserMembershipById, // Export
 };

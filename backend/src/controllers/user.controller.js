@@ -54,6 +54,16 @@ const adminAssignMembership = asyncHandler(async (req, res) => {
   });
 });
 
+// [ĐÃ THÊM] - Controller Hủy thẻ hội viên
+const adminRemoveMembership = asyncHandler(async (req, res) => {
+  const userId = Number(req.params.userId);
+  const membershipId = Number(req.params.membershipId);
+
+  await userService.adminRemoveMembership(userId, membershipId);
+
+  return sendSuccess(res, { message: "Hủy thẻ hội viên thành công" });
+});
+
 const adminUpdateStatus = asyncHandler(async (req, res) => {
   const data = await userService.adminUpdateStatus(Number(req.params.userId), req.body.status);
   return sendSuccess(res, { message: "User status updated", data });
@@ -73,6 +83,7 @@ module.exports = {
   adminUpdateUser,
   adminDeleteUser,
   adminAssignMembership,
+  adminRemoveMembership, // Nhớ export ra
   adminUpdateStatus,
   adminUpdateRole,
 };
