@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   Avatar,
   Box,
   Button,
@@ -48,22 +47,21 @@ const statusLabelMap = {
 export default function PlansPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [snackbar, setSnackbar] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
+  // State quản lý thông báo
+  const [snackbar, setSnackbar] = useState("");
+
   const fetchPlans = useCallback(async () => {
     setLoading(true);
-    setError("");
-
     try {
       const result = await apiRequest({ method: "GET", url: "/api/membership-plans?page=1&limit=100" });
       setRows(result?.data?.items || []);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setSnackbar(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -93,8 +91,6 @@ export default function PlansPage() {
 
   const savePlan = async () => {
     setSaving(true);
-    setError("");
-
     try {
       const payload = {
         name: form.name,
@@ -116,7 +112,7 @@ export default function PlansPage() {
       setOpenDialog(false);
       await fetchPlans();
     } catch (err) {
-      setError(getErrorMessage(err));
+      setSnackbar(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -127,7 +123,6 @@ export default function PlansPage() {
     if (!file) return;
 
     setUploadingImage(true);
-    setError("");
 
     try {
       const data = new FormData();
@@ -143,7 +138,7 @@ export default function PlansPage() {
       setForm((prev) => ({ ...prev, imageUrl: result?.data?.url || "" }));
       setSnackbar("Upload ảnh gói hội viên thành công");
     } catch (err) {
-      setError(getErrorMessage(err));
+      setSnackbar(getErrorMessage(err));
     } finally {
       setUploadingImage(false);
       event.target.value = "";
@@ -151,15 +146,13 @@ export default function PlansPage() {
   };
 
   const removePlan = async (id) => {
-    const accepted = window.confirm("Xóa gói hội viên này?");
-    if (!accepted) return;
-
     try {
       await apiRequest({ method: "DELETE", url: `/api/membership-plans/${id}` });
-      setSnackbar("Đã xóa gói hội viên");
+      setSnackbar("Đã xóa gói hội viên thành công");
       await fetchPlans();
     } catch (err) {
-      setError(getErrorMessage(err));
+      const errorMessage = getErrorMessage(err);
+      setSnackbar(`Xóa không thành công`);
     }
   };
 
@@ -171,8 +164,6 @@ export default function PlansPage() {
           Tạo gói mới
         </Button>
       </Stack>
-
-      {error && <Alert severity="error">{error}</Alert>}
 
       <Paper sx={{ overflow: "hidden" }}>
         {loading ? (
@@ -328,11 +319,21 @@ export default function PlansPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Thông báo nền trắng, chữ đen, đổ bóng nhẹ */}
       <Snackbar
         open={Boolean(snackbar)}
-        autoHideDuration={2600}
+        autoHideDuration={3000}
         onClose={() => setSnackbar("")}
         message={snackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        ContentProps={{
+          sx: {
+            bgcolor: "#ffffff",
+            color: "#000000",
+            boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)", // Đổ bóng cho thông báo nổi lên
+            fontWeight: 500,
+          }
+        }}
       />
     </Stack>
   );
