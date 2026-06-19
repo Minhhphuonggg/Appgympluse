@@ -146,6 +146,8 @@ export default function PlansPage() {
   };
 
   const removePlan = async (id) => {
+    const accepted = window.confirm("Xóa gói hội viên này?");
+    if (!accepted) return;
     try {
       await apiRequest({ method: "DELETE", url: `/api/membership-plans/${id}` });
       setSnackbar("Đã xóa gói hội viên thành công");

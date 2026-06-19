@@ -279,7 +279,7 @@ export default function UsersPage() {
       setSnackbar("Đã xóa hội viên");
       await fetchUsers();
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(`Xóa không thành công`);
     }
   };
 
