@@ -154,7 +154,7 @@ export default function PlansPage() {
       await fetchPlans();
     } catch (err) {
       const errorMessage = getErrorMessage(err);
-      setSnackbar(`Xóa không thành công`);
+      setSnackbar(`Xóa không thành công vì gói hội viên đang được sử dụng`);
     }
   };
 

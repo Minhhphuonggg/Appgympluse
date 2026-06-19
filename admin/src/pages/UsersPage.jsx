@@ -279,7 +279,8 @@ export default function UsersPage() {
       setSnackbar("Đã xóa hội viên");
       await fetchUsers();
     } catch (err) {
-      setError(`Xóa không thành công`);
+      const errorMessage = getErrorMessage(err);
+      setSnackbar(`Xóa không thành công vì hội viên đang có thẻ hội viên`);
     }
   };
 
@@ -774,9 +775,18 @@ export default function UsersPage() {
 
       <Snackbar
         open={Boolean(snackbar)}
-        autoHideDuration={2400}
+        autoHideDuration={3000}
         onClose={() => setSnackbar("")}
         message={snackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        ContentProps={{
+          sx: {
+            bgcolor: "#ffffff",
+            color: "#000000",
+            boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)", // Đổ bóng cho thông báo nổi lên
+            fontWeight: 500,
+          }
+        }}
       />
     </Stack>
   );
